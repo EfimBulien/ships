@@ -20,8 +20,8 @@ class Ship {
   List<bool> hits;
 
   Ship(this.name, this.size)
-    : coordinates = [],
-      hits = List.filled(size, false);
+      : coordinates = [],
+        hits = List.filled(size, false);
 
   bool get isSunk => hits.every((hit) => hit);
 
@@ -32,18 +32,9 @@ class Ship {
   bool checkHit(int x, int y) {
     for (int i = 0; i < coordinates.length; i++) {
       if (coordinates[i][0] == x && coordinates[i][1] == y) {
-        if (i < hits.length) {
+        if (i < hits.length && !hits[i]) {
           hits[i] = true;
           return true;
-        } else {
-          for (int j = 0; j < coordinates.length; j++) {
-            if (coordinates[j][0] == x &&
-                coordinates[j][1] == y &&
-                j < hits.length) {
-              hits[j] = true;
-              return true;
-            }
-          }
         }
       }
     }
@@ -57,8 +48,8 @@ class GameBoard {
   List<Ship> ships;
 
   GameBoard(this.size)
-    : grid = List.generate(size, (_) => List.filled(size, '~')),
-      ships = [];
+      : grid = List.generate(size, (_) => List.filled(size, '~')),
+        ships = [];
 
   bool placeShip(Ship ship, int x, int y, bool isHorizontal) {
     if (isHorizontal) {
@@ -90,6 +81,12 @@ class GameBoard {
   }
 
   String attack(int x, int y) {
+    // Проверяем, не стреляли ли уже в эту клетку
+    if (grid[x][y] == 'X' || grid[x][y] == '•') {
+      return 'already';
+    }
+
+    // Проверяем попадание
     if (grid[x][y] == 'O') {
       for (Ship ship in ships) {
         if (ship.checkHit(x, y)) {
@@ -100,10 +97,18 @@ class GameBoard {
           return 'hit';
         }
       }
-    } else if (grid[x][y] == '~') {
+      // Защита на случай, если 'O' не принадлежит ни одному кораблю
+      // (не должно происходить при правильном размещении)
+      grid[x][y] = 'X';
+      return 'hit';
+    }
+
+    // Промах
+    if (grid[x][y] == '~') {
       grid[x][y] = '•';
       return 'miss';
     }
+
     return 'already';
   }
 
@@ -137,9 +142,12 @@ class Player {
   bool isBot;
 
   Player(this.name, int boardSize, {this.isBot = false})
-    : board = GameBoard(boardSize);
+      : board = GameBoard(boardSize);
 
-  void placeShipsManually(List<Ship> ships) {
+  void placeShipsManually(List<Ship> originalShips) {
+    // Клонируем корабли, чтобы не использовать общие объекты
+    List<Ship> ships = originalShips.map((s) => Ship(s.name, s.size)).toList();
+
     print('\n$name, размещение кораблей:');
     stdout.write('Хотите разместить корабли автоматически? (y/n): ');
     String? auto = stdin.readLineSync();
@@ -192,7 +200,9 @@ class Player {
     }
   }
 
-  void placeShipsAutomatically(List<Ship> ships) {
+  void placeShipsAutomatically(List<Ship> originalShips) {
+    // Клонируем корабли
+    List<Ship> ships = originalShips.map((s) => Ship(s.name, s.size)).toList();
     Random random = Random();
 
     for (Ship ship in ships) {
@@ -213,60 +223,78 @@ class Player {
     print('\nВаше поле (слева) и поле противника (справа):');
     displayBothBoards(board, opponentBoard);
 
-    bool validMove = false;
-    while (!validMove) {
-      stdout.write('Введите координаты для атаки (например, A1): ');
-      String? input = stdin.readLineSync();
+    bool turnContinues = true;
+    bool gameOver = false;
 
-      if (input == 'exit') {
-        exit(0);
-      }
+    while (turnContinues && !gameOver) {
+      bool validMove = false;
+      while (!validMove) {
+        stdout.write('Введите координаты для атаки (например, A1): ');
+        String? input = stdin.readLineSync();
 
-      if (input == null || input.length < 2) {
-        print('Неверный формат! Попробуйте снова.');
-        continue;
-      }
+        if (input == 'exit') {
+          exit(0);
+        }
 
-      try {
-        int x = int.parse(input.substring(1)) - 1;
-        int y = input[0].toUpperCase().codeUnitAt(0) - 65;
-
-        if (x < 0 ||
-            x >= opponentBoard.size ||
-            y < 0 ||
-            y >= opponentBoard.size) {
-          print('Координаты вне поля! Попробуйте снова.');
+        if (input == null || input.length < 2) {
+          print('Неверный формат! Попробуйте снова.');
           continue;
         }
 
-        String result = opponentBoard.attack(x, y);
+        try {
+          int x = int.parse(input.substring(1)) - 1;
+          int y = input[0].toUpperCase().codeUnitAt(0) - 65;
 
-        switch (result) {
-          case 'hit':
-            print('Попадание!');
-            validMove = true;
-            break;
-          case 'sunk':
-            print('Потоплен!');
-            validMove = true;
-            break;
-          case 'miss':
-            print('Промах!');
-            validMove = true;
-            break;
-          case 'already':
-            print('Вы уже стреляли сюда! Попробуйте снова.');
-            break;
+          if (x < 0 ||
+              x >= opponentBoard.size ||
+              y < 0 ||
+              y >= opponentBoard.size) {
+            print('Координаты вне поля! Попробуйте снова.');
+            continue;
+          }
+
+          String result = opponentBoard.attack(x, y);
+
+          switch (result) {
+            case 'hit':
+              print('Попадание!');
+              validMove = true;
+              turnContinues = true;
+              break;
+            case 'sunk':
+              print('Потоплен!');
+              validMove = true;
+              turnContinues = true;
+              break;
+            case 'miss':
+              print('Промах!');
+              validMove = true;
+              turnContinues = false;
+              break;
+            case 'already':
+              print('Вы уже стреляли сюда! Попробуйте снова.');
+              break;
+          }
+
+          if (opponentBoard.allShipsSunk) {
+            gameOver = true;
+          }
+        } catch (e) {
+          print('Неверный формат! Попробуйте снова.');
         }
-      } catch (e) {
-        print('Неверный формат! Попробуйте снова.');
+      }
+
+      if (turnContinues && !gameOver) {
+        print('\nПродолжайте ход!');
+        print('\nТекущее состояние полей:');
+        displayBothBoards(board, opponentBoard);
       }
     }
 
     print('\nРезультат после хода:');
     displayBothBoards(board, opponentBoard);
 
-    return opponentBoard.allShipsSunk;
+    return gameOver;
   }
 
   void displayBothBoards(GameBoard own, GameBoard enemy) {
@@ -303,12 +331,13 @@ class Player {
       stdout.write('${(i + 1).toString().padLeft(2)} ');
       for (int j = 0; j < size; j++) {
         String cell = enemy.grid[i][j];
-        if (cell == 'O') cell = '~';
         String out = cell;
         if (cell == 'X')
           out = colorize('X', 'red');
         else if (cell == '•')
           out = colorize('•', 'blue');
+        else
+          out = '~';
         stdout.write('$out ');
       }
       print('');
@@ -323,47 +352,58 @@ class Player {
 
   bool makeBotMove(GameBoard opponentBoard) {
     print('\n$name делает ход...');
-    Random random = Random();
+
+    List<List<int>> possibleMoves = [];
+
+    for (int i = 0; i < opponentBoard.size; i++) {
+      for (int j = 0; j < opponentBoard.size; j++) {
+        if (opponentBoard.grid[i][j] != 'X' && opponentBoard.grid[i][j] != '•') {
+          possibleMoves.add([i, j]);
+        }
+      }
+    }
+
+    if (possibleMoves.isEmpty) return opponentBoard.allShipsSunk;
+
+    possibleMoves.shuffle();
 
     bool turnContinues = true;
     bool gameOver = false;
 
-    while (turnContinues && !gameOver) {
-      int x = random.nextInt(opponentBoard.size);
-      int y = random.nextInt(opponentBoard.size);
+    while (turnContinues && !gameOver && possibleMoves.isNotEmpty) {
+      List<int> move = possibleMoves.removeLast();
+      int x = move[0];
+      int y = move[1];
 
       String result = opponentBoard.attack(x, y);
+      String coord = '${String.fromCharCode(65 + y)}${x + 1}';
 
-      if (result != 'already') {
-        String coord = '${String.fromCharCode(65 + y)}${x + 1}';
-        switch (result) {
-          case 'hit':
-            print('$name атаковал $coord - ${colorize("Попадание!", "red")}');
+      switch (result) {
+        case 'hit':
+          print('$name атаковал $coord - ${colorize("Попадание!", "red")}');
+          turnContinues = true;
+          break;
+        case 'sunk':
+          print(
+            '$name атаковал $coord - ${colorize("Корабль потоплен!", "yellow")}',
+          );
+          turnContinues = true;
+          break;
+        case 'miss':
+          print('$name атаковал $coord - ${colorize("Промах!", "blue")}');
+          turnContinues = false;
+          break;
+        case 'already':
+          // Не должно происходить, так как фильтруем выше
+          turnContinues = false;
+          break;
+      }
 
-            turnContinues = true;
-            break;
-
-          case 'sunk':
-            print(
-              '$name атаковал $coord - ${colorize("Корабль потоплен!", "yellow")}',
-            );
-
-            turnContinues = true;
-            break;
-
-          case 'miss':
-            print('$name атаковал $coord - ${colorize("Промах!", "blue")}');
-
-            turnContinues = false;
-            break;
-        }
-
-        if (opponentBoard.allShipsSunk) {
-          gameOver = true;
-        }
+      if (opponentBoard.allShipsSunk) {
+        gameOver = true;
       }
     }
-    return opponentBoard.allShipsSunk;
+    return gameOver;
   }
 }
 
@@ -440,10 +480,10 @@ class BattleshipGame {
 
     for (Player player in players) {
       if (player.isBot) {
-        player.placeShipsAutomatically(List.from(shipsTemplate));
+        player.placeShipsAutomatically(shipsTemplate);
         print('\n${player.name} разместил свои корабли.');
       } else {
-        player.placeShipsManually(List.from(shipsTemplate));
+        player.placeShipsManually(shipsTemplate);
       }
       _clearConsole();
     }
@@ -484,7 +524,12 @@ class BattleshipGame {
   }
 
   void _clearConsole() {
-    print(Process.runSync("clear", [], runInShell: true).stdout);
+    // Кроссплатформенная очистка
+    if (Platform.isWindows) {
+      print('\x1B[2J\x1B[0;0H'); // ANSI для Windows терминалов (новые)
+    } else {
+      print('\x1B[2J\x1B[H');
+    }
   }
 }
 
