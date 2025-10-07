@@ -20,8 +20,8 @@ class Ship {
   List<bool> hits;
 
   Ship(this.name, this.size)
-      : coordinates = [],
-        hits = List.filled(size, false);
+    : coordinates = [],
+      hits = List.filled(size, false);
 
   bool get isSunk => hits.every((hit) => hit);
 
@@ -48,8 +48,8 @@ class GameBoard {
   List<Ship> ships;
 
   GameBoard(this.size)
-      : grid = List.generate(size, (_) => List.filled(size, '~')),
-        ships = [];
+    : grid = List.generate(size, (_) => List.filled(size, '~')),
+      ships = [];
 
   bool placeShip(Ship ship, int x, int y, bool isHorizontal) {
     if (isHorizontal) {
@@ -81,12 +81,10 @@ class GameBoard {
   }
 
   String attack(int x, int y) {
-    // Проверяем, не стреляли ли уже в эту клетку
     if (grid[x][y] == 'X' || grid[x][y] == '•') {
       return 'already';
     }
 
-    // Проверяем попадание
     if (grid[x][y] == 'O') {
       for (Ship ship in ships) {
         if (ship.checkHit(x, y)) {
@@ -97,13 +95,11 @@ class GameBoard {
           return 'hit';
         }
       }
-      // Защита на случай, если 'O' не принадлежит ни одному кораблю
-      // (не должно происходить при правильном размещении)
+
       grid[x][y] = 'X';
       return 'hit';
     }
 
-    // Промах
     if (grid[x][y] == '~') {
       grid[x][y] = '•';
       return 'miss';
@@ -142,10 +138,9 @@ class Player {
   bool isBot;
 
   Player(this.name, int boardSize, {this.isBot = false})
-      : board = GameBoard(boardSize);
+    : board = GameBoard(boardSize);
 
   void placeShipsManually(List<Ship> originalShips) {
-    // Клонируем корабли, чтобы не использовать общие объекты
     List<Ship> ships = originalShips.map((s) => Ship(s.name, s.size)).toList();
 
     print('\n$name, размещение кораблей:');
@@ -201,7 +196,6 @@ class Player {
   }
 
   void placeShipsAutomatically(List<Ship> originalShips) {
-    // Клонируем корабли
     List<Ship> ships = originalShips.map((s) => Ship(s.name, s.size)).toList();
     Random random = Random();
 
@@ -300,20 +294,41 @@ class Player {
   void displayBothBoards(GameBoard own, GameBoard enemy) {
     int size = own.size;
 
-    stdout.write('     ');
-    for (int i = 0; i < size; i++) {
-      stdout.write('${String.fromCharCode(65 + i)} ');
-    }
-    stdout.write('         ');
-    for (int i = 0; i < size; i++) {
-      stdout.write('${String.fromCharCode(65 + i)} ');
-    }
+    int numberWidth = size >= 10 ? 2 : 1;
+
+    String header =
+        '  ' +
+        List.generate(size, (i) => String.fromCharCode(65 + i)).join(' ') +
+        ' ';
+
+    stdout.write(' ' * numberWidth);
+    stdout.write(header);
+    stdout.write('   ');
+    stdout.write(header);
     print('');
 
-    print('   --- МОЁ ПОЛЕ ---             --- ПОЛЕ ПРОТИВНИКА ---');
+    String myFieldLabel = '--- МОЁ ПОЛЕ ---';
+    String enemyFieldLabel = '--- ПОЛЕ ПРОТИВНИКА ---';
+    int leftOffset = numberWidth + 1;
+    int leftPadding = leftOffset + (header.length - myFieldLabel.length) ~/ 2;
+    int rightPadding = (header.length - enemyFieldLabel.length) ~/ 2;
+
+    stdout.write(' ' * leftPadding);
+    stdout.write(myFieldLabel);
+    stdout.write(
+      ' ' *
+          (header.length -
+              myFieldLabel.length -
+              (header.length - myFieldLabel.length) ~/ 2),
+    );
+    stdout.write('   ');
+    stdout.write(' ' * rightPadding);
+    stdout.write(enemyFieldLabel);
+    print('');
 
     for (int i = 0; i < size; i++) {
-      stdout.write('${(i + 1).toString().padLeft(2)} ');
+      stdout.write('${(i + 1).toString().padLeft(numberWidth)} ');
+
       for (int j = 0; j < size; j++) {
         String cell = own.grid[i][j];
         String out = cell;
@@ -326,9 +341,10 @@ class Player {
         stdout.write('$out ');
       }
 
-      stdout.write('      ');
+      stdout.write('   ');
 
-      stdout.write('${(i + 1).toString().padLeft(2)} ');
+      stdout.write('${(i + 1).toString().padLeft(numberWidth)} ');
+
       for (int j = 0; j < size; j++) {
         String cell = enemy.grid[i][j];
         String out = cell;
@@ -357,7 +373,8 @@ class Player {
 
     for (int i = 0; i < opponentBoard.size; i++) {
       for (int j = 0; j < opponentBoard.size; j++) {
-        if (opponentBoard.grid[i][j] != 'X' && opponentBoard.grid[i][j] != '•') {
+        if (opponentBoard.grid[i][j] != 'X' &&
+            opponentBoard.grid[i][j] != '•') {
           possibleMoves.add([i, j]);
         }
       }
@@ -394,7 +411,6 @@ class Player {
           turnContinues = false;
           break;
         case 'already':
-          // Не должно происходить, так как фильтруем выше
           turnContinues = false;
           break;
       }
@@ -524,9 +540,8 @@ class BattleshipGame {
   }
 
   void _clearConsole() {
-    // Кроссплатформенная очистка
     if (Platform.isWindows) {
-      print('\x1B[2J\x1B[0;0H'); // ANSI для Windows терминалов (новые)
+      print('\x1B[2J\x1B[0;0H');
     } else {
       print('\x1B[2J\x1B[H');
     }
