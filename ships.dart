@@ -19,9 +19,16 @@ class GameLogger {
     if (!_isInitialized) {
       final directory = await _getGameDirectory();
       _logFile = File('${directory.path}/game_log.txt');
-      await _logFile.writeAsString(
-        '=== НАЧАЛО СЕССИИ ИГРЫ ===\n${DateTime.now()}\n\n',
-      );
+      
+      if (await _logFile.exists()) {
+        await _logFile.writeAsString(
+          '\n\n=== НОВАЯ СЕССИЯ ИГРЫ ===\n${DateTime.now()}\n\n',
+          mode: FileMode.append
+        );
+      } else {
+        await _logFile.writeAsString('=== НАЧАЛО СЕССИИ ИГРЫ ===\n${DateTime.now()}\n\n');
+      }
+      
       _isInitialized = true;
     }
   }
@@ -529,7 +536,7 @@ class Player {
     await PlayerDataManager().savePlayerData(name, playerData);
   }
 
-  void placeShipsManually(List<Ship> originalShips) {
+  Future<void> placeShipsManually(List<Ship> originalShips) async {
     List<Ship> ships = originalShips.map((s) => Ship(s.name, s.size)).toList();
 
     print('\n$name, размещение кораблей:');
@@ -563,7 +570,7 @@ class Player {
 
           if (x < 0 || x >= board.size || y < 0 || y >= board.size) {
             print('Координаты вне поля! Попробуйте снова.');
-            GameLogger().logError(
+            await GameLogger().logError(
               'Игрок $name пытался разместить корабль на недопустимые координаты $input',
               'Координаты вне поля',
             );
@@ -649,7 +656,7 @@ class Player {
               y < 0 ||
               y >= opponentBoard.size) {
             print('Координаты вне поля! Попробуйте снова.');
-            GameLogger().logError(
+            await GameLogger().logError(
               'Игрок $name пытался атаковать недопустимые координаты $input',
               'Координаты вне поля',
             );
@@ -681,7 +688,8 @@ class Player {
               break;
             case 'already':
               print('Вы уже стреляли сюда! Попробуйте снова.');
-              GameLogger().logError(
+              
+              await GameLogger().logError(
                 'Игрок $name пытался атаковать уже атакованное поле $input',
                 'Поле уже атаковано',
               );
@@ -1129,7 +1137,7 @@ class BattleshipGame {
     try {
       final hasSavedGame = await CurrentGameManager().hasSavedGame();
       if (!hasSavedGame) {
-        print('Нет сохраненной игры для загрузки.');
+        print('Нет сохраненной игры для загрузки. Начата новая игра.');
         return null;
       }
 
